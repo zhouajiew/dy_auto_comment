@@ -1,4 +1,4 @@
-# dy_lottery_helper
+# dy_auto_comment
 个人用dy自动点赞评论工具
 ## 程序功能
 每次将随机观看视频/直播[10, 30]秒
