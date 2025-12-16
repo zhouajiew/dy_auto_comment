@@ -1,9 +1,14 @@
 import asyncio
 import os
 import random
+import signal
+import sys
+import threading
 import time
 
 import pyperclip
+
+import keyboard
 
 from datetime import datetime
 
@@ -19,6 +24,70 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # 构建相对路径
 relative_path = os.path.join(current_dir)
+
+def on_key_event(event):
+    if event.event_type == 'down':
+        if event.name == "f2":
+            listen_status[0] = not listen_status[0]
+
+            if listen_status[0] == 1:
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print(Fore.YELLOW + f'{timestamp} 已开启键盘事件监听' + Fore.RESET)
+            else:
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print(Fore.YELLOW + f'{timestamp} 已关闭键盘事件监听' + Fore.RESET)
+
+        if listen_status[0] == 1:
+            if event.name == '2':
+                if pause[0] == 0:
+                   pause[0] = 1
+
+                   timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                   print(Fore.YELLOW + f'{timestamp} 程序已暂停' + Fore.RESET)
+                else:
+                   pause[0] = 0
+
+                   timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                   print(Fore.YELLOW + f'{timestamp} 程序已恢复运行' + Fore.RESET)
+
+# 一些事项在此处理
+def handle_something():
+    start_time = time.time()
+    # 本轮程序运行时间
+    start_time2 = time.time()
+
+    temp_t1 = time.time()
+
+    while True:
+        temp_t2 = time.time()
+        if temp_t2 - temp_t1 > 10:
+            temp_t1 = temp_t2
+
+            temp_running_time = time.time() - start_time
+            temp_running_time2 = time.time() - start_time2
+
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(Fore.YELLOW + f'{timestamp} 当前程序运行时间:{temp_running_time}s' + Fore.RESET)
+
+            if pause_automatically[0] == 1 and pause[0] == 0:
+                if temp_running_time2 > set_pause_running_time[0]:
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    print(Fore.YELLOW + f'{timestamp} 本轮程序运行时间{temp_running_time2}s≥指定值{set_pause_running_time[0]}s，自动暂停程序' + Fore.RESET)
+
+                    pause[0] = 1
+
+                    start_time2 = time.time()
+
+            if close_automatically[0] == 1:
+                if temp_running_time > set_close_running_time[0]:
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    print(Fore.YELLOW + f'{timestamp} 程序运行时间{temp_running_time}s≥指定值{set_close_running_time[0]}s，自动关闭程序' + Fore.RESET)
+
+                    time.sleep(5)
+                    pid = os.getpid()  # 获取当前进程ID
+                    os.kill(pid, signal.SIGTERM)  # 发送终止信号
+
+        time.sleep(0.1)
 
 async def get_doubao_reply(page, page2):
     # 读取剪贴板内容
@@ -114,9 +183,15 @@ async def get_doubao_reply(page, page2):
 
                                 await asyncio.sleep(random.uniform(3, 5))
 
+                    return 'reply succeed'
+                else:
+                    return 'reply failed'
+
             except Exception as e:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                print(Fore.RED + f'{timestamp} 获取豆包回复超时！{e}' + Fore.RESET)
+                print(Fore.RED + f'{timestamp} 评论时出现异常！{e}' + Fore.RESET)
+
+                return 'reply failed'
 
 async def main():
     async with async_playwright() as p:
@@ -168,15 +243,19 @@ async def main():
         t1 = time.time()
         t2 = t1
 
-        # 本轮看过的视频数量
+        # 本轮看过的视频数量(点赞)
         video_watched_count = 0
-        # 随机看多少个视频/直播后进行点赞+评论
-        random_make_actions_count = random.randint(20, 30)
+        # 本轮看过的视频数量(评论)
+        video_watched_count2 = 0
+        # 随机看多少个视频/直播后进行点赞
+        random_make_actions_count = random.randint(min_click_like_count[0], max_click_like_count[0])
+        # 随机看多少个视频/直播后进行评论
+        random_make_actions_count2 = random.randint(min_comment_count[0], max_comment_count[0])
 
         while True:
             temp_element = await page.locator("[class='temp_element']").all()
             await asyncio.sleep(1)
-            if login_status:
+            if login_status and pause[0] == 0:
                 # 转到下一个视频
                 t2 = time.time()
                 if t2 - t1 > temp_count:
@@ -195,15 +274,12 @@ async def main():
 
                         await asyncio.sleep(random.uniform(3, 5))
 
-                        # comment_element = await page.locator("[class='jp8u3iov']").all()
-
                         active_video_element = await page.locator("[data-e2e='feed-active-video']").all()
 
                         if active_video_element:
                             temp_active_video_element = active_video_element[0]
                             like_count = ''
 
-                            # KV_gO8oI uwkzJlBF myn2Itp_
                             like_count_element = await temp_active_video_element.locator(
                                 "[class='KV_gO8oI uwkzJlBF myn2Itp_']").all()
                             if like_count_element:
@@ -214,10 +290,15 @@ async def main():
 
                                 # 只对万赞以上的视频点赞和评论
                                 if '万' in like_count:
+                                    # 考虑到同时满足两种情况的时候，只执行自动点赞
+                                    meet_condition1 = False
+
                                     if video_watched_count > random_make_actions_count:
+                                        meet_condition1 = True
+
                                         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                         print(
-                                            Fore.YELLOW + f'{timestamp} 尝试自动点赞和评论视频中...' + Fore.RESET)
+                                            Fore.YELLOW + f'{timestamp} 尝试自动点赞中...' + Fore.RESET)
 
                                         async def click_like():
                                             nonlocal video_watched_count
@@ -229,7 +310,7 @@ async def main():
                                             random_watch_video_time = random.uniform(20, 30)
 
                                             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                            print(f'{timestamp} 将在{random_watch_video_time}秒后自动点赞和评论')
+                                            print(f'{timestamp} 将在{random_watch_video_time}秒后自动点赞')
 
                                             while True:
                                                 temp_t2 = time.time()
@@ -242,17 +323,10 @@ async def main():
 
                                                     # 重置相关数据
                                                     video_watched_count = 0
-                                                    random_make_actions_count = random.randint(20, 30)
+                                                    random_make_actions_count = random.randint(min_click_like_count[0], max_click_like_count[0])
 
-                                                    # 按'V'键分享
-                                                    await page.keyboard.press("V")
-                    
-                                                    await asyncio.sleep(random.uniform(1, 2))
-                    
-                                                    get_reply_task = asyncio.create_task(get_doubao_reply(page, page2))
-                                                    await get_reply_task
-
-                                                    await asyncio.sleep(random.uniform(5, 10))
+                                                    # 点赞后仍需随机停留一段时间
+                                                    await asyncio.sleep(random.uniform(3, 5))
 
                                                     break
 
@@ -261,9 +335,87 @@ async def main():
 
                                         await asyncio.create_task(click_like())
 
+                                    if video_watched_count2 > random_make_actions_count2 and not meet_condition1:
+                                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                        print(
+                                            Fore.YELLOW + f'{timestamp} 尝试自动评论视频中...' + Fore.RESET)
+
+                                        async def comment():
+                                            nonlocal video_watched_count2
+                                            nonlocal random_make_actions_count2
+
+                                            temp_t1 = time.time()
+
+                                            # 随机观看视频[20, 30]秒后，进行点赞和评论
+                                            random_watch_video_time = random.uniform(20, 30)
+
+                                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                            print(f'{timestamp} 将在{random_watch_video_time}秒后自动评论视频')
+
+                                            while True:
+                                                temp_t2 = time.time()
+                                                if temp_t2 - temp_t1 > random_watch_video_time:
+                                                    if click_like_before_comment[0] == 1:
+                                                        # 按'Z'键点赞
+                                                        await page.keyboard.press("Z")
+
+                                                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                                        print(f'{timestamp} 已点赞该视频:)')
+
+                                                    # 重置相关数据
+                                                    video_watched_count2 = 0
+                                                    random_make_actions_count2 = random.randint(min_comment_count[0], max_comment_count[0])
+
+                                                    # 按'V'键分享
+                                                    await page.keyboard.press("V")
+                    
+                                                    await asyncio.sleep(random.uniform(1, 2))
+
+                                                    reply_result = await get_doubao_reply(page, page2)
+
+                                                    if reply_result == 'reply failed':
+                                                        # 本次评论失败的话，尝试转至下个视频进行评论(需启用该功能)
+                                                        if comment_next_if_failed[0] == 1:
+                                                            video_watched_count2 = 9999
+
+                                                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                                            print(
+                                                                Fore.RED + f'{timestamp} 本次评论失败，尝试转至下个视频进行评论' + Fore.RESET)
+                                                        else:
+                                                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                                            print(
+                                                                Fore.RED + f'{timestamp} 本次评论失败！' + Fore.RESET)
+                                                    else:
+                                                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                                        print(
+                                                            Fore.GREEN + f'{timestamp} 本次评论成功:D' + Fore.RESET)
+
+                                                    await asyncio.sleep(random.uniform(5, 10))
+
+                                                    break
+
+                                                temp_element = await page.locator("[class='temp_element']").all()
+                                                await asyncio.sleep(1)
+
+                                        await asyncio.create_task(comment())
+
                         video_watched_count += 1
                         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        print(f'{timestamp} 本轮已观看视频/直播{video_watched_count}个，超过{random_make_actions_count}个后自动进行点赞以及评论:)')
+                        print(f'{timestamp} 本轮已观看视频/直播{video_watched_count}个，超过{random_make_actions_count}个后自动进行点赞:)')
+
+                        video_watched_count2 += 1
+                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        print(
+                            f'{timestamp} 本轮已观看视频/直播{video_watched_count2}个，超过{random_make_actions_count2}个后自动进行评论:)')
 
 if __name__ == "__main__":
+    # 设置键盘钩子
+    keyboard.hook(on_key_event)
+
+    # 线程:处理一些事项
+    handle_something_thread = threading.Thread(target=handle_something)
+    handle_something_thread.start()
+
+    time.sleep(5)
+
     asyncio.run(main())
