@@ -152,10 +152,12 @@ def get_ai_response_stream(model, messages):
             file.write(full_content)
         '''
 
-        return {"reasoning_content":reasoning_content, "content":content, "cost":cost,
-                "completion_tokens":completion_tokens,
-                "prompt_cache_hit_tokens":cache_hit_tokens,
-                "prompt_cache_miss_tokens":cache_miss_tokens}
+        return {
+            "reasoning_content":reasoning_content, "content":content, "cost":cost,
+            "completion_tokens":completion_tokens,
+            "prompt_cache_hit_tokens":cache_hit_tokens,
+            "prompt_cache_miss_tokens":cache_miss_tokens
+            }
     else:
         '''
         full_content = f'最终回复:{content}'
@@ -164,8 +166,9 @@ def get_ai_response_stream(model, messages):
             file.write(full_content)
         '''
 
-        return {"content":content, "cost":cost,
-                "completion_tokens": completion_tokens,
-                "prompt_cache_hit_tokens": cache_hit_tokens,
-                "prompt_cache_miss_tokens": cache_miss_tokens
-                }
+        return {
+            "content":content, "cost":cost,
+            "completion_tokens": completion_tokens,
+            "prompt_cache_hit_tokens": cache_hit_tokens,
+            "prompt_cache_miss_tokens": cache_miss_tokens
+            }
