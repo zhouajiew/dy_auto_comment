@@ -106,9 +106,15 @@ async def get_doubao_reply(page, page2):
             await asyncio.sleep(1)
             # 回复完毕
             try:
-                temp_w = await page2.locator(
-                    "[class='message-action-bar-raqbg0 flex flex-row w-full group']").first.wait_for(
-                    timeout=30000)
+                try:
+                    temp_w = await page2.locator(
+                        "[class='message-action-bar-raqbg0 flex flex-row w-full group']").first.wait_for(
+                        timeout=30000)
+                except Exception as e:
+                    pause[0] = 1
+
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    print(Fore.RED + f'{timestamp} 检测到验证码出现，程序已自动暂停' + Fore.RESET)
 
                 reply_element = await page2.locator(
                     "[class='auto-hide-last-sibling-br paragraph-pP9ZLC paragraph-element br-paragraph-space']").all()
@@ -183,9 +189,9 @@ async def get_doubao_reply(page, page2):
 
                                 await asyncio.sleep(random.uniform(3, 5))
 
-                    return 'reply succeed'
-                else:
-                    return 'reply failed'
+                        return 'reply succeed'
+                    else:
+                        return 'reply failed'
 
             except Exception as e:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -355,7 +361,14 @@ async def main():
                                             while True:
                                                 temp_t2 = time.time()
                                                 if temp_t2 - temp_t1 > random_watch_video_time:
-                                                    if click_like_before_comment[0] == 1:
+                                                    right_condition = False
+                                                    if click_like_before_comment[0] == 1 and video_watched_count2 < 9999:
+                                                        right_condition = True
+
+                                                    if comment_next_and_click_like[0] == 1 and video_watched_count2 >= 9999:
+                                                        right_condition = True
+
+                                                    if right_condition:
                                                         # 按'Z'键点赞
                                                         await page.keyboard.press("Z")
 
