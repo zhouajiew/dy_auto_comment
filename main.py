@@ -94,12 +94,12 @@ async def get_doubao_reply(page, page2):
     temp_link = pyperclip.paste()
 
     # 获取豆包回复
-    input_element = await page2.locator("[class='editor-wrapper-aTMAEc']").all()
+    input_element = await page2.locator("[class='semi-input-textarea semi-input-textarea-autosize']").all()
     if input_element:
-        await page2.type("[class='editor-wrapper-aTMAEc']", temp_link)
+        await page2.type("[class='semi-input-textarea semi-input-textarea-autosize']", temp_link)
 
         await asyncio.sleep(2, 3)
-        send_button_element = await page2.locator("[class='container-kD9BOs send-btn-wrapper']").all()
+        send_button_element = await page2.locator("[data-testid='chat_input_send_button']").all()
         if send_button_element:
             await send_button_element[0].click(force=True)
 
