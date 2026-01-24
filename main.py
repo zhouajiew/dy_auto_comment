@@ -123,6 +123,22 @@ async def get_doubao_reply(page, page2):
             reply_element = await page2.locator(
                 "[class='auto-hide-last-sibling-br paragraph-pP9ZLC paragraph-element br-paragraph-space']").all()
             full_reply = ''
+
+            # reply_element还有另一种情况
+            # header-iWP5WJ auto-hide-last-sibling-br
+            if not reply_element:
+                reply_element = await page2.locator(
+                    "[class='header-iWP5WJ auto-hide-last-sibling-br']").all()
+
+            # 如果还有其他情况，强制开启新对话
+            if not reply_element:
+                await asyncio.sleep(random.uniform(3, 5))
+                try:
+                    await page2.goto("https://www.doubao.com/chat", timeout=10000)
+                except Exception as e:
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    print(Fore.RED + f'{timestamp} 跳转超时！' + Fore.RESET)
+
             if reply_element:
                 for r in reply_element:
                     temp_reply = await r.inner_text(timeout=5000)
