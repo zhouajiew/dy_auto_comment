@@ -99,105 +99,109 @@ async def get_doubao_reply(page, page2):
         await page2.type("[class='semi-input-textarea semi-input-textarea-autosize']", temp_link)
 
         await asyncio.sleep(2, 3)
+        '''
         send_button_element = await page2.locator("[data-testid='chat_input_send_button']").all()
         if send_button_element:
             await send_button_element[0].click(force=True)
 
             await asyncio.sleep(1)
-            # 回复完毕
+        '''
+        # 直接模拟按下回车键即可
+        await page2.keyboard.press("Enter")
+        # 回复完毕
+        try:
             try:
-                try:
-                    temp_w = await page2.locator(
-                        "[class='message-action-bar-raqbg0 flex flex-row w-full group']").first.wait_for(
-                        timeout=30000)
-                except Exception as e:
-                    pause[0] = 1
+                temp_w = await page2.locator(
+                    "[class='message-action-bar-raqbg0 flex flex-row w-full group']").first.wait_for(
+                    timeout=30000)
+            except Exception as e:
+                pause[0] = 1
 
-                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    print(Fore.RED + f'{timestamp} 检测到验证码出现，程序已自动暂停' + Fore.RESET)
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print(Fore.RED + f'{timestamp} 检测到验证码出现，程序已自动暂停' + Fore.RESET)
 
-                reply_element = await page2.locator(
-                    "[class='auto-hide-last-sibling-br paragraph-pP9ZLC paragraph-element br-paragraph-space']").all()
-                full_reply = ''
-                if reply_element:
-                    for r in reply_element:
-                        temp_reply = await r.inner_text(timeout=5000)
+            reply_element = await page2.locator(
+                "[class='auto-hide-last-sibling-br paragraph-pP9ZLC paragraph-element br-paragraph-space']").all()
+            full_reply = ''
+            if reply_element:
+                for r in reply_element:
+                    temp_reply = await r.inner_text(timeout=5000)
+                    full_reply += temp_reply
+
+                # 分段元素的处理
+                ol_element = await page2.locator("[class='auto-hide-last-sibling-br']").all()
+                if ol_element:
+                    for ol in ol_element:
+                        temp_reply = await ol.inner_text(timeout=5000)
                         full_reply += temp_reply
 
-                    # 分段元素的处理
-                    ol_element = await page2.locator("[class='auto-hide-last-sibling-br']").all()
-                    if ol_element:
-                        for ol in ol_element:
-                            temp_reply = await ol.inner_text(timeout=5000)
-                            full_reply += temp_reply
+                print(full_reply)
 
-                    print(full_reply)
+                await asyncio.sleep(random.uniform(3, 5))
+                try:
+                    await page2.goto("https://www.doubao.com/chat", timeout=10000)
+                except Exception as e:
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    print(Fore.RED + f'{timestamp} 跳转超时！' + Fore.RESET)
+
+                error_reply = False
+
+                # 系统内部异常/非公开 pass
+                if '系统内部异常' in full_reply or '非公开' in full_reply:
+                    error_reply = True
+
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    print(Fore.RED + f'{timestamp} 获取到的豆包回复异常，本次将不进行评论！' + Fore.RESET)
+
+                if not error_reply:
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    print(Fore.YELLOW + f'{timestamp} 正在向DeepSeek发送请求' + Fore.RESET)
+
+                    system_prompt = '你是一个善于给视频进行评论的助手，接下来用户将会给你发送一段视频总结，请你根据视频总结作出合适的评论，评论禁止像人机也不要过长！'
+
+                    temp_messages = []
+                    temp_messages.append({"role": "system", "content": system_prompt})
+                    temp_messages.append({"role": "user", "content": full_reply})
+
+                    get_ai_response_result = get_ai_response_stream(model[0], temp_messages)
+
+                    final_reply = get_ai_response_result['content']
+
+                    # 按'X'键评论
+                    await page.keyboard.press("X")
+
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    print(f'{timestamp} 正在评论视频...')
 
                     await asyncio.sleep(random.uniform(3, 5))
-                    try:
-                        await page2.goto("https://www.doubao.com/chat", timeout=10000)
-                    except Exception as e:
-                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        print(Fore.RED + f'{timestamp} 跳转超时！' + Fore.RESET)
+                    comment_element = await page.locator("[class='hVeIqFGi']").all()
+                    if comment_element:
+                        await comment_element[0].click(force=True)
+                        await asyncio.sleep(random.uniform(1, 2))
 
-                    error_reply = False
-
-                    # 系统内部异常/非公开 pass
-                    if '系统内部异常' in full_reply or '非公开' in full_reply:
-                        error_reply = True
-
-                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        print(Fore.RED + f'{timestamp} 获取到的豆包回复异常，本次将不进行评论！' + Fore.RESET)
-
-                    if not error_reply:
-                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        print(Fore.YELLOW + f'{timestamp} 正在向DeepSeek发送请求' + Fore.RESET)
-
-                        system_prompt = '你是一个善于给视频进行评论的助手，接下来用户将会给你发送一段视频总结，请你根据视频总结作出合适的评论，评论禁止像人机也不要过长！'
-
-                        temp_messages = []
-                        temp_messages.append({"role": "system", "content": system_prompt})
-                        temp_messages.append({"role": "user", "content": full_reply})
-
-                        get_ai_response_result = get_ai_response_stream(model[0], temp_messages)
-
-                        final_reply = get_ai_response_result['content']
-
-                        # 按'X'键评论
-                        await page.keyboard.press("X")
-
-                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        print(f'{timestamp} 正在评论视频...')
+                        await page.type("[class='DraftEditor-editorContainer']", final_reply)
 
                         await asyncio.sleep(random.uniform(3, 5))
-                        comment_element = await page.locator("[class='hVeIqFGi']").all()
-                        if comment_element:
-                            await comment_element[0].click(force=True)
-                            await asyncio.sleep(random.uniform(1, 2))
 
-                            await page.type("[class='DraftEditor-editorContainer']", final_reply)
+                        send_button_element = await page.locator("[class='WFB7wUOX NUzvFSPe']").all()
+                        if send_button_element:
+                            await send_button_element[0].click(force=True)
+
+                            await asyncio.sleep(random.uniform(3, 5))
+                            # 按'X'键关闭评论区
+                            await page.keyboard.press("X")
 
                             await asyncio.sleep(random.uniform(3, 5))
 
-                            send_button_element = await page.locator("[class='WFB7wUOX NUzvFSPe']").all()
-                            if send_button_element:
-                                await send_button_element[0].click(force=True)
+                    return 'reply succeed'
+                else:
+                    return 'reply failed'
 
-                                await asyncio.sleep(random.uniform(3, 5))
-                                # 按'X'键关闭评论区
-                                await page.keyboard.press("X")
+        except Exception as e:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(Fore.RED + f'{timestamp} 评论时出现异常！{e}' + Fore.RESET)
 
-                                await asyncio.sleep(random.uniform(3, 5))
-
-                        return 'reply succeed'
-                    else:
-                        return 'reply failed'
-
-            except Exception as e:
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                print(Fore.RED + f'{timestamp} 评论时出现异常！{e}' + Fore.RESET)
-
-                return 'reply failed'
+            return 'reply failed'
 
 async def main():
     async with async_playwright() as p:
@@ -252,7 +256,7 @@ async def main():
         # 本轮看过的视频数量(点赞)
         video_watched_count = 0
         # 本轮看过的视频数量(评论)
-        video_watched_count2 = 0
+        video_watched_count2 = 9999
         # 随机看多少个视频/直播后进行点赞
         random_make_actions_count = random.randint(min_click_like_count[0], max_click_like_count[0])
         # 随机看多少个视频/直播后进行评论
