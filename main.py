@@ -111,14 +111,54 @@ async def get_doubao_reply(page, page2):
         # 回复完毕
         try:
             try:
+                dont_need_to_check_bottom_button = False
+
+                # 可能会有内容过长的情况
+                # container-qCMd_k to-bottom-button-rl6_v7
+                async def try_to_go_to_bottom():
+                    nonlocal dont_need_to_check_bottom_button
+
+                    try:
+                        for i in range(30):
+                            await asyncio.sleep(1)
+
+                            bottom_button = await page2.locator(
+                                "[class='container-qCMd_k to-bottom-button-rl6_v7']").all()
+
+                            if bottom_button or dont_need_to_check_bottom_button:
+                                break
+
+                        if not dont_need_to_check_bottom_button:
+                            bottom_button = await page2.locator(
+                                "[class='container-qCMd_k to-bottom-button-rl6_v7']").all()
+
+                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            print(Fore.YELLOW + f'{timestamp} 内容过长，尝试点击到最底部的按钮' + Fore.RESET)
+
+                            if bottom_button:
+                                await asyncio.sleep(10)
+                                bottom_button[0].click()
+                    except Exception as e:
+                        pass
+
+                asyncio.create_task(try_to_go_to_bottom())
+
                 temp_w = await page2.locator(
                     "[class='message-action-bar-raqbg0 flex flex-row w-full group']").first.wait_for(
-                    timeout=30000)
+                    timeout=60000)
+
+                dont_need_to_check_bottom_button = True
             except Exception as e:
                 pause[0] = 1
 
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                print(Fore.RED + f'{timestamp} 检测到验证码出现，程序已自动暂停' + Fore.RESET)
+                print(Fore.RED + f'{timestamp} 检测到豆包官网出现验证码，程序已自动暂停' + Fore.RESET)
+
+            # 如果出现验证码，等待用户解除暂停状态
+            while pause[0] == 1:
+                await asyncio.sleep(2)
+                temp_element = await page2.locator(
+                    "[class='temp_element']").all()
 
             reply_element = await page2.locator(
                 "[class='auto-hide-last-sibling-br paragraph-pP9ZLC paragraph-element br-paragraph-space']").all()
@@ -195,7 +235,33 @@ async def get_doubao_reply(page, page2):
                         await comment_element[0].click(force=True)
                         await asyncio.sleep(random.uniform(1, 2))
 
-                        await page.type("[class='DraftEditor-editorContainer']", final_reply)
+                        fail_count = 0
+
+                        for i in range(2):
+                            try:
+                                await page.type("[class='DraftEditor-editorContainer']", text=final_reply, timeout=15000)
+                                break
+                            except Exception as e:
+                                # 可能是评论区没被正确打开的原因，再试一次
+                                await page.keyboard.press("X")
+
+                                fail_count += 1
+
+                                await asyncio.sleep(random.uniform(3, 5))
+
+                                comment_element = await page.locator("[class='hVeIqFGi']").all()
+                                if comment_element:
+                                    await comment_element[0].click(force=True)
+                                    await asyncio.sleep(random.uniform(1, 2))
+
+                        if fail_count == 2:
+                            pause[0] = 1
+
+                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            print(
+                                Fore.RED + f'{timestamp} 检测到抖音浏览视频页面出现验证码，程序已自动暂停，请手动处理验证码！' + Fore.RESET)
+
+                            return 'reply failed'
 
                         await asyncio.sleep(random.uniform(3, 5))
 
@@ -260,6 +326,22 @@ async def main():
             print(Fore.YELLOW + f'{timestamp} 当前未登录抖音官网，请先登录，然后重启程序' + Fore.RESET)
         else:
             login_status = True
+
+        await asyncio.sleep(random.uniform(3, 5))
+
+        if 'recommend=1' not in page.url:
+            try:
+                recommend_element = await page.get_by_text(text="推荐").all()
+                if recommend_element:
+                    try:
+                        await recommend_element[0].click(force=True)
+                        await asyncio.sleep(random.uniform(3, 5))
+                    except Exception as e:
+                        pass
+
+            except Exception as e:
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print(Fore.RED + f'{timestamp} 打开网页超时！' + Fore.RESET)
 
         temp_count = random.uniform(10, 30)
 
