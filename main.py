@@ -370,6 +370,44 @@ async def main():
                     temp_count = random.uniform(10, 30)
                     t1 = t2
 
+                    # 取消自动连播，有时候该按钮会自动打开
+                    auto_play_element = await page.locator("[class='xg-switch xg-switch-checked']").all()
+                    if auto_play_element:
+                        # 按'K'键取消自动连播
+                        await page.keyboard.press("K")
+
+                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        print(Fore.YELLOW + f'{timestamp} 检测到自动连播被意外开启，取消自动连播' + Fore.RESET)
+
+                        await asyncio.sleep(random.uniform(3, 5))
+
+                    # 意外全屏的情况
+                    page_full_screen_element = await page.locator("[class='xgplayer-page-full-screen']").all()
+                    if page_full_screen_element:
+                        xgTips_element = await page_full_screen_element[0].locator("[class='xgTips']").all()
+                        if xgTips_element:
+                            xgTips_text = await xgTips_element[0].inner_text()
+                            if '退出网页全屏' in xgTips_text:
+                                await page.keyboard.press("Escape")
+
+                                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                print(Fore.YELLOW + f'{timestamp} 检测到意外网页全屏，退出网页全屏' + Fore.RESET)
+
+                                await asyncio.sleep(random.uniform(3, 5))
+
+                    fullscreen_element = await page.locator("[class='xgplayer-fullscreen']").all()
+                    if fullscreen_element:
+                        xg_tips_element = await fullscreen_element[0].locator("[class='xg-tips']").all()
+                        if xg_tips_element:
+                            xg_tips_text = await xg_tips_element[0].inner_text()
+                            if '退出全屏' in xg_tips_text:
+                                await page.keyboard.press("Escape")
+
+                                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                print(Fore.YELLOW + f'{timestamp} 检测到意外全屏，退出全屏' + Fore.RESET)
+
+                                await asyncio.sleep(random.uniform(3, 5))
+
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     print(Fore.YELLOW + f'{timestamp} 正在切换到下一个视频/直播...' + Fore.RESET)
 
